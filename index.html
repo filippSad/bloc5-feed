@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Потребление корма — Блок 5 / Блок 6</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #fff;
+    font-family: 'Georgia', serif;
+    color: #1a1a1a;
+    padding: 28px 24px 40px;
+    max-width: 100%;
+  }
+  h1 { font-size: 17px; font-weight: bold; margin-bottom: 4px; }
+  .meta { font-family: 'Courier New', monospace; font-size: 11px; color: #888; margin-bottom: 20px; }
+
+  /* Верхний уровень: Блок 5 / Блок 6 */
+  .bloc-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #1a1a1a;
+    margin-bottom: 24px;
+  }
+  .bloc-tab {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 9px 28px;
+    cursor: pointer;
+    color: #aaa;
+    border: none;
+    background: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s;
+    letter-spacing: 0.03em;
+  }
+  .bloc-tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+  .bloc-tab:hover:not(.active) { color: #555; }
+
+  .bloc-panel { display: none; }
+  .bloc-panel.active { display: block; }
+
+  /* Второй уровень: График / Таблица */
+  .view-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+  }
+  .view-tab {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 7px 20px;
+    cursor: pointer;
+    color: #888;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+  }
+  .view-tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+  .view-tab:hover:not(.active) { color: #444; }
+
+  .view-panel { display: none; }
+  .view-panel.active { display: block; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 14px; font-size: 12px; font-family: 'Courier New', monospace; color: #444; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+
+  .chart-container { position: relative; width: 100%; height: clamp(260px, 55vw, 480px); }
+
+  table { border-collapse: collapse; font-size: 13px; width: 100%; }
+  thead th {
+    font-family: 'Courier New', monospace; font-size: 11px; font-weight: normal;
+    color: #888; padding: 5px 10px 7px; text-align: center;
+    border-bottom: 1px solid #ddd; white-space: nowrap;
+  }
+  thead th:first-child { text-align: left; }
+  tbody tr:hover td { background: #fafafa; }
+  td { padding: 4px 4px; border-bottom: 0.5px solid #eee; }
+  td.date-cell { font-family: 'Courier New', monospace; font-size: 12px; color: #555; padding-right: 12px; white-space: nowrap; }
+
+  input[type="number"] {
+    width: 58px; border: 0.5px solid #ccc; border-radius: 3px;
+    padding: 3px 6px; font-size: 13px; font-family: 'Georgia', serif;
+    text-align: right; color: #1a1a1a; background: #fff; outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="number"]:focus { border-color: #2E6FBF; }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { opacity: 0.4; }
+  input[type="number"]:disabled { background: #f5f5f5; color: #aaa; border-color: #e8e8e8; cursor: default; }
+
+  .btn-row { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button.action {
+    font-family: 'Courier New', monospace; font-size: 11px; padding: 6px 14px;
+    border: 0.5px solid #bbb; border-radius: 3px; background: #fff; color: #333;
+    cursor: pointer; transition: background 0.12s;
+  }
+  button.action:hover { background: #f0f0f0; }
+  button.action.primary { border-color: #2E6FBF; color: #2E6FBF; }
+  button.action.primary:hover { background: #eef4fb; }
+  button.action:disabled { opacity: 0.3; pointer-events: none; }
+  button.action.unlocked { border-color: #1A9A6A; color: #1A9A6A; }
+  button.action.unlocked:hover { background: #edf8f3; }
+
+  .footer { margin-top: 24px; font-family: 'Courier New', monospace; font-size: 11px; color: #ccc; border-top: 0.5px solid #eee; padding-top: 10px; }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 200; align-items: center; justify-content: center; }
+  .overlay.visible { display: flex; }
+  .dialog { background: #fff; border: 0.5px solid #ccc; border-radius: 6px; padding: 28px 32px; width: 260px; text-align: center; }
+  .dialog p { font-size: 14px; margin-bottom: 14px; color: #333; }
+  .dialog input[type="password"] {
+    width: 100%; border: 0.5px solid #ccc; border-radius: 3px; padding: 8px 10px;
+    font-size: 18px; font-family: 'Courier New', monospace; text-align: center;
+    letter-spacing: 0.25em; outline: none; margin-bottom: 6px;
+  }
+  .dialog input[type="password"]:focus { border-color: #2E6FBF; }
+  .dialog .err { font-size: 11px; color: #C04A20; min-height: 16px; margin-bottom: 10px; font-family: 'Courier New', monospace; }
+
+  @media (max-width: 500px) {
+    body { padding: 18px 14px 32px; }
+    h1 { font-size: 15px; }
+    .bloc-tab { padding: 7px 18px; font-size: 12px; }
+    .view-tab { padding: 6px 14px; font-size: 11px; }
+    input[type="number"] { width: 48px; font-size: 12px; }
+    thead th { font-size: 10px; padding: 4px 6px 5px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Суточное потребление корма</h1>
+<div class="meta">кг/сут</div>
+
+<!-- Верхние вкладки блоков -->
+<div class="bloc-tabs">
+  <button class="bloc-tab active" onclick="switchBloc('b5')">Блок 5</button>
+  <button class="bloc-tab" onclick="switchBloc('b6')">Блок 6</button>
+</div>
+
+<!-- БЛОК 5 -->
+<div class="bloc-panel active" id="bloc-b5">
+  <div class="view-tabs">
+    <button class="view-tab active" onclick="switchView('b5','chart')">График</button>
+    <button class="view-tab" onclick="switchView('b5','table')">Таблица</button>
+  </div>
+  <div class="view-panel active" id="b5-chart">
+    <div class="legend" id="b5-legend"></div>
+    <div class="chart-container">
+      <canvas id="b5-canvas" role="img" aria-label="Суточное потребление корма блок 5"></canvas>
+    </div>
+  </div>
+  <div class="view-panel" id="b5-table">
+    <div class="btn-row" style="margin-top:0;margin-bottom:14px;">
+      <button class="action" id="b5-lockBtn" onclick="toggleLock('b5')">&#128274; Редактировать</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Дата</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr></thead>
+        <tbody id="b5-tbody"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="action primary" id="b5-btnAdd" onclick="addRow('b5')" disabled>+ Добавить день</button>
+      <button class="action" id="b5-btnDel" onclick="clearLast('b5')" disabled>Удалить последний</button>
+    </div>
+  </div>
+  <div class="footer" id="b5-footer"></div>
+</div>
+
+<!-- БЛОК 6 -->
+<div class="bloc-panel" id="bloc-b6">
+  <div class="view-tabs">
+    <button class="view-tab active" onclick="switchView('b6','chart')">График</button>
+    <button class="view-tab" onclick="switchView('b6','table')">Таблица</button>
+  </div>
+  <div class="view-panel active" id="b6-chart">
+    <div class="legend" id="b6-legend"></div>
+    <div class="chart-container">
+      <canvas id="b6-canvas" role="img" aria-label="Суточное потребление корма блок 6"></canvas>
+    </div>
+  </div>
+  <div class="view-panel" id="b6-table">
+    <div class="btn-row" style="margin-top:0;margin-bottom:14px;">
+      <button class="action" id="b6-lockBtn" onclick="toggleLock('b6')">&#128274; Редактировать</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Дата</th><th>1</th><th>2</th><th>4</th><th>5</th></tr></thead>
+        <tbody id="b6-tbody"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="action primary" id="b6-btnAdd" onclick="addRow('b6')" disabled>+ Добавить день</button>
+      <button class="action" id="b6-btnDel" onclick="clearLast('b6')" disabled>Удалить последний</button>
+    </div>
+  </div>
+  <div class="footer" id="b6-footer"></div>
+</div>
+
+<!-- Диалог пароля -->
+<div class="overlay" id="overlay">
+  <div class="dialog">
+    <p>Пароль для редактирования</p>
+    <input type="password" id="pwdInput" placeholder="••••" maxlength="20"
+      onkeydown="if(event.key==='Enter')checkPwd()" />
+    <div class="err" id="pwdErr"></div>
+    <button class="action" onclick="checkPwd()">Войти</button>
+  </div>
+</div>
+
+<script>
+const BLOCS = {
+  b5: {
+    ponds:  ['1','2','3','4','5','6'],
+    colors: ['#E63329','#F5A800','#1DAF5C','#0077CC','#9B27AF','#E8720C'],
+    rows: [
+      { date:'27.03', vals:[33,33,15,34,15,16] },
+      { date:'28.03', vals:[41,44,25,40,32.5,32.5] },
+      { date:'29.03', vals:[48,52,41,50,41.5,41.5] },
+      { date:'30.03', vals:[51,48,55,55,47,47] },
+      { date:'31.03', vals:[54,41,48,48,45,49] },
+      { date:'01.04', vals:[54,42,51,50,50,50] },
+      { date:'02.04', vals:[62,62,62,62,55,55] },
+      { date:'03.04', vals:[69,69,66,75,64,64] },
+      { date:'04.04', vals:[73,73,66,76,69,69] },
+      { date:'05.04', vals:[76,76,61,72,70,70] },
+      { date:'06.04', vals:[85,85,65,76,72,72] },
+      { date:'07.04', vals:[90,88,70,86,78,78] },
+      { date:'08.04', vals:[90,90,79,98,82,82] },
+      { date:'09.04', vals:[98,98,81,106,85.5,85.5] },
+    ],
+    unlocked: false,
+    chart: null,
+  },
+  b6: {
+    ponds:  ['1','2','4','5'],
+    colors: ['#E63329','#F5A800','#0077CC','#1DAF5C'],
+    rows: [
+      { date:'27.03', vals:[30,25,36,39] },
+      { date:'28.03', vals:[30,29,30,36] },
+      { date:'29.03', vals:[34,30,30,39] },
+      { date:'30.03', vals:[49,28,39,56] },
+      { date:'31.03', vals:[53,43,57,57] },
+      { date:'01.04', vals:[57,52,70,54] },
+      { date:'02.04', vals:[60,54,68,54] },
+      { date:'03.04', vals:[65,54,75,50] },
+      { date:'04.04', vals:[76,55,77,64] },
+      { date:'05.04', vals:[94,64,86,79] },
+      { date:'06.04', vals:[100,73,101,65] },
+      { date:'07.04', vals:[87,87,112,64] },
+      { date:'08.04', vals:[104,96,122,83] },
+      { date:'09.04', vals:[108,82,132,105] },
+    ],
+    unlocked: false,
+    chart: null,
+  }
+};
+
+let pendingBloc = null;
+
+function switchBloc(id) {
+  document.querySelectorAll('.bloc-tab').forEach((t,i) => t.classList.toggle('active', ['b5','b6'][i]===id));
+  document.querySelectorAll('.bloc-panel').forEach(p => p.classList.toggle('active', p.id==='bloc-'+id));
+  const b = BLOCS[id];
+  if (b.chart) setTimeout(() => b.chart.resize(), 10);
+}
+
+function switchView(bloc, view) {
+  const panel = document.getElementById('bloc-'+bloc);
+  panel.querySelectorAll('.view-tab').forEach((t,i) => t.classList.toggle('active', ['chart','table'][i]===view));
+  panel.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('active', p.id===bloc+'-'+view));
+  if (view==='chart' && BLOCS[bloc].chart) setTimeout(() => BLOCS[bloc].chart.resize(), 10);
+}
+
+function toggleLock(bloc) {
+  const b = BLOCS[bloc];
+  if (b.unlocked) {
+    b.unlocked = false; setEditMode(bloc, false);
+  } else {
+    pendingBloc = bloc;
+    document.getElementById('overlay').classList.add('visible');
+    document.getElementById('pwdInput').value = '';
+    document.getElementById('pwdErr').textContent = '';
+    setTimeout(() => document.getElementById('pwdInput').focus(), 60);
+  }
+}
+
+function checkPwd() {
+  if (document.getElementById('pwdInput').value === '8338') {
+    BLOCS[pendingBloc].unlocked = true;
+    document.getElementById('overlay').classList.remove('visible');
+    setEditMode(pendingBloc, true);
+    pendingBloc = null;
+  } else {
+    document.getElementById('pwdErr').textContent = 'Неверный пароль';
+    document.getElementById('pwdInput').value = '';
+    document.getElementById('pwdInput').focus();
+  }
+}
+
+function setEditMode(bloc, on) {
+  const tbody = document.getElementById(bloc+'-tbody');
+  tbody.querySelectorAll('input[type="number"]').forEach(i => i.disabled = !on);
+  document.getElementById(bloc+'-btnAdd').disabled = !on;
+  document.getElementById(bloc+'-btnDel').disabled = !on;
+  const lb = document.getElementById(bloc+'-lockBtn');
+  lb.textContent = on ? '🔓 Заблокировать' : '🔒 Редактировать';
+  lb.classList.toggle('unlocked', on);
+}
+
+function nextDate(s) {
+  const [d,m] = s.split('.').map(Number);
+  const dt = new Date(2025, m-1, d);
+  dt.setDate(dt.getDate()+1);
+  return String(dt.getDate()).padStart(2,'0')+'.'+String(dt.getMonth()+1).padStart(2,'0');
+}
+
+function renderTable(bloc) {
+  const b = BLOCS[bloc];
+  const tbody = document.getElementById(bloc+'-tbody');
+  tbody.innerHTML = '';
+  b.rows.forEach((row, ri) => {
+    const tr = document.createElement('tr');
+    const tdD = document.createElement('td');
+    tdD.className = 'date-cell'; tdD.textContent = row.date;
+    tr.appendChild(tdD);
+    b.ponds.forEach((p, pi) => {
+      const td = document.createElement('td');
+      const inp = document.createElement('input');
+      inp.type='number'; inp.min='0'; inp.step='0.5';
+      inp.value = row.vals[pi] ?? '';
+      inp.disabled = !b.unlocked;
+      inp.addEventListener('input', () => {
+        b.rows[ri].vals[pi] = inp.value==='' ? null : parseFloat(inp.value);
+        updateChart(bloc);
+      });
+      td.appendChild(inp); tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  updateFooter(bloc);
+}
+
+function addRow(bloc) {
+  const b = BLOCS[bloc];
+  b.rows.push({ date: nextDate(b.rows[b.rows.length-1].date), vals: b.ponds.map(()=>null) });
+  renderTable(bloc); updateChart(bloc);
+  setTimeout(() => document.getElementById(bloc+'-tbody').lastChild.scrollIntoView({behavior:'smooth',block:'nearest'}), 50);
+}
+
+function clearLast(bloc) {
+  const b = BLOCS[bloc];
+  if (b.rows.length > 1) { b.rows.pop(); renderTable(bloc); updateChart(bloc); }
+}
+
+function updateFooter(bloc) {
+  const b = BLOCS[bloc];
+  const f = b.rows.filter(r => r.vals.some(v => v!==null));
+  const label = bloc==='b5' ? 'Блок 5' : 'Блок 6';
+  document.getElementById(bloc+'-footer').textContent = f.length >= 2
+    ? label+'  ·  '+f[0].date+' – '+f[f.length-1].date+'  ·  '+f.length+' дней'
+    : label;
+}
+
+function buildChart(bloc) {
+  const b = BLOCS[bloc];
+  b.chart = new Chart(document.getElementById(bloc+'-canvas'), {
+    type: 'line',
+    data: {
+      labels: b.rows.map(r => r.date),
+      datasets: b.ponds.map((p, pi) => ({
+        label: p+' пруд',
+        data: b.rows.map(r => r.vals[pi] ?? null),
+        borderColor: b.colors[pi],
+        backgroundColor: 'transparent',
+        borderWidth: 2.5,
+        pointRadius: 4,
+        pointHoverRadius: 7,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: b.colors[pi],
+        pointBorderWidth: 2,
+        tension: 0.3,
+        spanGaps: false,
+      }))
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#fff',
+          borderColor: '#ddd',
+          borderWidth: 1,
+          titleColor: '#333',
+          bodyColor: '#444',
+          footerColor: '#1a1a1a',
+          footerFont: { weight:'bold' },
+          padding: 10,
+          callbacks: {
+            label: ctx => '  '+ctx.dataset.label+': '+(ctx.parsed.y!==null ? ctx.parsed.y+' кг' : '—'),
+            footer: items => {
+              const total = items.reduce((s,i) => s+(i.parsed.y??0), 0);
+              return 'Итого: '+Math.round(total*10)/10+' кг';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { font:{size:11,family:"'Courier New',monospace"}, color:'#666', autoSkip:false, maxRotation:45 },
+          grid: { color:'rgba(0,0,0,0.05)' },
+          border: { color:'#ccc' }
+        },
+        y: {
+          title: { display:true, text:'кг/сут', font:{size:11,family:"'Courier New',monospace"}, color:'#888' },
+          ticks: { font:{size:11,family:"'Courier New',monospace"}, color:'#666' },
+          grid: { color:'rgba(0,0,0,0.05)' },
+          border: { color:'#ccc' },
+          min: 0
+        }
+      }
+    }
+  });
+}
+
+function updateChart(bloc) {
+  const b = BLOCS[bloc];
+  if (!b.chart) return;
+  b.chart.data.labels = b.rows.map(r => r.date);
+  b.ponds.forEach((p,pi) => { b.chart.data.datasets[pi].data = b.rows.map(r => r.vals[pi]??null); });
+  b.chart.update();
+  updateFooter(bloc);
+}
+
+function buildLegend(bloc) {
+  const b = BLOCS[bloc];
+  const leg = document.getElementById(bloc+'-legend');
+  b.ponds.forEach((p,pi) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width','28'); svg.setAttribute('height','12');
+    const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1','0'); ln.setAttribute('y1','6'); ln.setAttribute('x2','28'); ln.setAttribute('y2','6');
+    ln.setAttribute('stroke',b.colors[pi]); ln.setAttribute('stroke-width','2.5');
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx','14'); dot.setAttribute('cy','6'); dot.setAttribute('r','3.5');
+    dot.setAttribute('fill','#fff'); dot.setAttribute('stroke',b.colors[pi]); dot.setAttribute('stroke-width','2');
+    svg.appendChild(ln); svg.appendChild(dot);
+    const lbl = document.createElement('span');
+    lbl.textContent = p+' пруд';
+    item.appendChild(svg); item.appendChild(lbl);
+    leg.appendChild(item);
+  });
+}
+
+['b5','b6'].forEach(bloc => {
+  renderTable(bloc);
+  buildLegend(bloc);
+  buildChart(bloc);
+});
+</script>
+</body>
+</html>
