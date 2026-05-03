@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Заловы</title>
+<link rel="apple-touch-icon" href="icon-catches.png">
+<meta name="apple-mobile-web-app-title" content="Заловы">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; font-family: 'Georgia', serif; color: #1a1a1a; padding: 0 24px 40px; }
+
+  .sticky-top {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 20;
+    padding-top: 20px;
+  }
+  h1 { font-size: 17px; font-weight: bold; margin-bottom: 10px; }
+  .bloc-tabs { display: flex; border-bottom: 2px solid #1a1a1a; }
+  .bloc-tab { font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; padding: 8px 24px; cursor: pointer; color: #aaa; border: none; background: none; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color 0.15s; }
+  .bloc-tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+  .bloc-tab:hover:not(.active) { color: #555; }
+
+  .thead-row, .data-row {
+    display: grid;
+    grid-template-columns: 110px 90px 70px 110px 120px;
+    padding: 6px 0;
+  }
+  .thead-row {
+    border-bottom: 1px solid #ddd;
+    background: #fff;
+  }
+  .thead-row span {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+  }
+  .thead-row span:nth-child(1) { text-align: left; }
+  .thead-row span:nth-child(2) { text-align: left; }
+  .thead-row span:nth-child(3) { text-align: right; }
+  .thead-row span:nth-child(4) { text-align: right; }
+  .thead-row span:nth-child(5) { text-align: right; }
+
+  .bloc-panel { display: none; margin-top: 4px; }
+  .bloc-panel.active { display: block; }
+
+  .status { font-family: 'Courier New', monospace; font-size: 11px; color: #aaa; padding: 8px 0; }
+  .status.err { color: #C04A20; }
+
+  .data-row {
+    border-bottom: 0.5px solid #f0f0f0;
+  }
+  .data-row span {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .data-row span:nth-child(1) { text-align: left; color: #555; font-size: 12px; }
+  .data-row span:nth-child(2) { text-align: left; }
+  .data-row span:nth-child(3) { text-align: right; }
+  .data-row span:nth-child(4) { text-align: right; }
+  .data-row span:nth-child(5) { text-align: right; }
+
+  .group-end { border-bottom: 1px solid #ccc; }
+
+  .pos { color: #1A9A6A; }
+  .neg { color: #C04A20; }
+  .neu { color: #aaa; }
+
+  .footer { margin-top: 20px; font-family: 'Courier New', monospace; font-size: 11px; color: #ccc; border-top: 0.5px solid #eee; padding-top: 10px; }
+
+  @media (max-width: 500px) {
+    body { padding: 0 14px 32px; }
+    h1 { font-size: 15px; }
+    .bloc-tab { padding: 7px 14px; font-size: 12px; }
+    .thead-row, .data-row {
+      grid-template-columns: 90px 75px 55px 80px 90px;
+    }
+    .thead-row span, .data-row span { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sticky-top">
+  <h1>Контрольные заловы</h1>
+  <div class="bloc-tabs">
+    <button class="bloc-tab active" onclick="switchBloc('b5')">Блок 5</button>
+    <button class="bloc-tab" onclick="switchBloc('b6')">Блок 6</button>
+  </div>
+  <div class="thead-row">
+    <span>Дата / День</span>
+    <span>Пруд</span>
+    <span>Шт/кг</span>
+    <span>Масса 1 шт, г</span>
+    <span>Динамика, %/сут</span>
+  </div>
+</div>
+
+<div class="bloc-panel active" id="bloc-b5">
+  <div class="status" id="b5-status">загрузка...</div>
+  <div id="b5-rows"></div>
+  <div class="footer" id="b5-footer"></div>
+</div>
+
+<div class="bloc-panel" id="bloc-b6">
+  <div class="status" id="b6-status">загрузка...</div>
+  <div id="b6-rows"></div>
+  <div class="footer" id="b6-footer"></div>
+</div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbz7MVgaXjxVBc42D6yGMReykkFH_l7NOmPnnib3TIQyR8JPfPAUinJg0WrYrDdO5L8b/exec';
+const CFG = {
+  b5: { ponds: ['1','2','3','4','5','6','ДС-1','ДС-2'] },
+  b6: { ponds: ['1','2','3','4','5'] },
+};
+
+function switchBloc(id) {
+  document.querySelectorAll('.bloc-tab').forEach((t,i) => t.classList.toggle('active', ['b5','b6'][i]===id));
+  document.querySelectorAll('.bloc-panel').forEach(p => p.classList.toggle('active', p.id==='bloc-'+id));
+}
+
+function parseNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  return parseFloat(String(v).trim().replace(/^0+(\d)/, '$1'));
+}
+
+function jsonp(params) {
+  return new Promise(resolve => {
+    const cb = 'cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const s = document.createElement('script');
+    const t = setTimeout(() => { cleanup(); resolve(null); }, 12000);
+    function cleanup() { clearTimeout(t); delete window[cb]; s.parentNode && s.parentNode.removeChild(s); }
+    window[cb] = d => { cleanup(); resolve(d); };
+    s.onerror = () => { cleanup(); resolve(null); };
+    s.src = API+'?'+Object.entries({...params,callback:cb}).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+    document.head.appendChild(s);
+  });
+}
+
+function processRows(raw, ponds) {
+  const dateOrder = [], dateMap = {};
+  raw.forEach(row => {
+    const date = String(row[0]).trim();
+    const day  = parseInt(row[1]) || 0;
+    const prud = String(row[2]).trim();
+    const shtkg = parseNum(row[3]);
+    const mass  = parseNum(row[4]);
+    if (!date || !prud) return;
+    if (!dateMap[date]) { dateMap[date] = { day, ponds: {} }; dateOrder.push(date); }
+    dateMap[date].ponds[prud] = { shtkg, mass };
+  });
+
+  // Для каждого пруда запоминаем индекс первой даты с данными
+  const pondFirstDate = {};
+  ponds.forEach(p => {
+    const idx = dateOrder.findIndex(date => {
+      const e = dateMap[date].ponds[p];
+      return e != null && (e.mass != null || e.shtkg != null);
+    });
+    if (idx !== -1) pondFirstDate[p] = idx;
+  });
+
+  const activePonds = ponds.filter(p => pondFirstDate[p] !== undefined);
+
+  const dynamics = {};
+  activePonds.forEach(p => {
+    let prevDay = null, prevMass = null;
+    dateOrder.forEach(date => {
+      const entry = dateMap[date]?.ponds[p];
+      const mass = entry?.mass ?? null;
+      const day  = dateMap[date]?.day ?? null;
+      if (mass !== null && prevMass !== null && day !== null && prevDay !== null && day !== prevDay)
+        dynamics[date+'_'+p] = ((mass - prevMass) / prevMass * 100) / (day - prevDay);
+      if (mass !== null) { prevMass = mass; prevDay = day; }
+    });
+  });
+  return { dateOrder, dateMap, dynamics, activePonds, pondFirstDate };
+}
+
+function renderRows(bloc, dateOrder, dateMap, dynamics, activePonds, pondFirstDate) {
+  const container = document.getElementById(bloc+'-rows');
+  container.innerHTML = '';
+  dateOrder.forEach((date, di) => {
+    const { day, ponds: pondData } = dateMap[date];
+    // пруды которые уже появились к этой дате
+    const visiblePonds = activePonds.filter(p => pondFirstDate[p] <= di);
+    if (visiblePonds.length === 0) return;
+    visiblePonds.forEach((p, pi) => {
+      const entry = pondData[p];
+      const div = document.createElement('div');
+      div.className = 'data-row' + (pi === visiblePonds.length-1 && di < dateOrder.length-1 ? ' group-end' : '');
+      const s1 = document.createElement('span'); s1.textContent = pi === 0 ? date+' / '+day+' д' : ''; div.appendChild(s1);
+      const s2 = document.createElement('span'); s2.textContent = p; div.appendChild(s2);
+      const s3 = document.createElement('span'); s3.textContent = entry?.shtkg != null ? entry.shtkg : '—'; div.appendChild(s3);
+      const s4 = document.createElement('span'); s4.textContent = entry?.mass != null ? entry.mass.toFixed(2) : '—'; div.appendChild(s4);
+      const s5 = document.createElement('span');
+      const dyn = dynamics[date+'_'+p];
+      if (dyn !== undefined) {
+        s5.textContent = (dyn >= 0 ? '+' : '') + dyn.toFixed(2) + '%';
+        s5.className = dyn > 0 ? 'pos' : dyn < 0 ? 'neg' : 'neu';
+      } else { s5.textContent = '—'; s5.className = 'neu'; }
+      div.appendChild(s5);
+      container.appendChild(div);
+    });
+  });
+}
+
+async function load(bloc) {
+  const raw = await jsonp({ bloc });
+  const st = document.getElementById(bloc+'-status');
+  if (!raw || raw.length === 0) { st.textContent = 'нет данных'; st.className = 'status err'; return; }
+  const { dateOrder, dateMap, dynamics, activePonds, pondFirstDate } = processRows(raw, CFG[bloc].ponds);
+  if (dateOrder.length === 0) { st.textContent = 'таблица пустая'; st.className = 'status err'; return; }
+  st.textContent = '';
+  renderRows(bloc, dateOrder, dateMap, dynamics, activePonds, pondFirstDate);
+  const last = dateOrder[dateOrder.length-1];
+  document.getElementById(bloc+'-footer').textContent =
+    (bloc==='b5'?'Блок 5':'Блок 6')+'  ·  последний залов: '+last+' (день '+dateMap[last].day+')';
+}
+
+load('b5');
+load('b6');
+</script>
+</body>
+</html>
